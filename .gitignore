@@ -8,3 +8,7 @@ out
 next-env.d.ts
 .DS_Store
 CREDENTIALS.txt
+
+# raw source data (parsed into src/data/*.json) — large, iCloud-offloaded
+/data
+/logo.png
