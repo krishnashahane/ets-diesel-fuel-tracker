@@ -1,0 +1,6 @@
+# Raw source data (already parsed into src/data/*.json by `npm run seed`) — not needed at runtime.
+# Anchored to root so src/data/*.json (imported by the build) is NOT excluded.
+/data
+/scripts
+/CREDENTIALS.txt
+/tsconfig.tsbuildinfo

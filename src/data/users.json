@@ -1,0 +1,110 @@
+[
+  {
+    "id": "U1",
+    "username": "superadmin",
+    "name": "Super Administrator",
+    "role": "superadmin",
+    "passwordHash": "$2a$12$W2Tdrlf/FO9Gf0C2TwXSIeJS4vGA/aVB3d0Eu0.o875kRRIBEfXgS",
+    "active": true,
+    "createdAt": "2026-07-09T11:54:12.948Z"
+  },
+  {
+    "id": "U2",
+    "username": "admin",
+    "name": "System Administrator",
+    "role": "admin",
+    "passwordHash": "$2a$12$j6O4kY2VCnL28Zb8FF9u/uY2dXpfKL.3i5oVJcBK9xIjyLfFf3fBq",
+    "active": true,
+    "createdAt": "2026-07-09T11:54:13.251Z"
+  },
+  {
+    "id": "U3",
+    "username": "user1",
+    "name": "User 1",
+    "role": "supervisor",
+    "passwordHash": "$2a$12$1mYBg5VYIkEm3LrIROvG..gE6FjZc.JBTOHgIkGpQWwjpvDZdu4Rm",
+    "active": true,
+    "createdAt": "2026-07-09T11:54:13.554Z"
+  },
+  {
+    "id": "U4",
+    "username": "user2",
+    "name": "User 2",
+    "role": "supervisor",
+    "passwordHash": "$2a$12$N2RW2F5fI4uZemJo0mS0de9GekCB0pnfknoq.Rk55cC8R73MYBQaG",
+    "active": true,
+    "createdAt": "2026-07-09T11:54:13.857Z"
+  },
+  {
+    "id": "U5",
+    "username": "user3",
+    "name": "User 3",
+    "role": "site_rep",
+    "passwordHash": "$2a$12$o0A4RHaYFbbgD7AjXcTolOFO/IQyWG/sKTZQ/101wrAvaPFpygUGO",
+    "active": true,
+    "createdAt": "2026-07-09T11:54:14.158Z"
+  },
+  {
+    "id": "U6",
+    "username": "user4",
+    "name": "User 4",
+    "role": "site_rep",
+    "passwordHash": "$2a$12$ufW3ChV38X2EmWivO5ecDuu4PWa0RwikCT1v/khT//Kr30oS1UZJa",
+    "active": true,
+    "createdAt": "2026-07-09T11:54:14.458Z"
+  },
+  {
+    "id": "U7",
+    "username": "user5",
+    "name": "User 5",
+    "role": "operations",
+    "passwordHash": "$2a$12$S7yaD2mYLEVq.Im0svkpE.nRCRmnwmhRKE/AZAOzkJB8qvwmggxga",
+    "active": true,
+    "createdAt": "2026-07-09T11:54:14.754Z"
+  },
+  {
+    "id": "U8",
+    "username": "user6",
+    "name": "User 6",
+    "role": "operations",
+    "passwordHash": "$2a$12$zh22adW/D8UBhfApeOxdqeogNKQ3.eOkxPGpZ1Ly/HnNPWDYHNU8m",
+    "active": true,
+    "createdAt": "2026-07-09T11:54:15.048Z"
+  },
+  {
+    "id": "U9",
+    "username": "user7",
+    "name": "User 7",
+    "role": "driver",
+    "passwordHash": "$2a$12$ycO4yarjfm0agwnvGMbBnedIl0GRIvc/sU.KpCuQW/beMKETU7vm2",
+    "active": true,
+    "createdAt": "2026-07-09T11:54:15.349Z"
+  },
+  {
+    "id": "U10",
+    "username": "user8",
+    "name": "User 8",
+    "role": "driver",
+    "passwordHash": "$2a$12$.qC5Ra3q/j5PJPO2vkPD6.8TVbbblcZMQGTWjxFmD/vl02FN4x5IC",
+    "active": true,
+    "createdAt": "2026-07-09T11:54:15.644Z"
+  },
+  {
+    "id": "U11",
+    "username": "user9",
+    "name": "User 9",
+    "role": "supervisor",
+    "passwordHash": "$2a$12$emM4HM5prZwbVlTC5Flg3urrMllrB7MeTFfDDf0/aXhsh2XQmx9De",
+    "active": true,
+    "createdAt": "2026-07-09T11:54:15.952Z"
+  },
+  {
+    "id": "U12",
+    "username": "user10",
+    "name": "User 10",
+    "role": "operations",
+    "passwordHash": "$2a$12$x3yYhEa8mIiOV6L4fMEEgeVYZA5Ua6x0MB74J0ThZDXNn4VY7OxQO",
+    "active": true,
+    "createdAt": "2026-07-09T11:54:16.246Z"
+  }
+]
