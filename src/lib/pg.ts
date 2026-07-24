@@ -28,11 +28,16 @@ export async function ensureSchema(): Promise<void> {
         created_at timestamptz NOT NULL DEFAULT now(),
         data jsonb NOT NULL
       )`;
+      // updated_at drives incremental sync: a warm instance polls only the rows
+      // that changed since it last looked, instead of re-reading the whole table.
+      await sql`ALTER TABLE app_transactions ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now()`;
+      await sql`CREATE INDEX IF NOT EXISTS app_transactions_updated_at_idx ON app_transactions (updated_at)`;
       await sql`CREATE TABLE IF NOT EXISTS app_audit (
         id text PRIMARY KEY,
         ts timestamptz NOT NULL DEFAULT now(),
         data jsonb NOT NULL
       )`;
+      await sql`CREATE INDEX IF NOT EXISTS app_audit_ts_idx ON app_audit (ts)`;
       await sql`CREATE TABLE IF NOT EXISTS app_masters (
         mtype text NOT NULL,
         mkey text NOT NULL,
@@ -106,9 +111,32 @@ export async function upsertUser(u: User): Promise<void> {
 export async function insertTransaction(t: Transaction): Promise<void> {
   if (!sql) return;
   const created = t.createdAt || new Date().toISOString();
-  await sql`INSERT INTO app_transactions (id, created_at, data)
-            VALUES (${t.id}, ${created}, ${JSON.stringify(t)})
-            ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`;
+  // updated_at is always bumped so other instances pick the row up on their next sync.
+  await sql`INSERT INTO app_transactions (id, created_at, updated_at, data)
+            VALUES (${t.id}, ${created}, now(), ${JSON.stringify(t)})
+            ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = now()`;
+}
+
+/**
+ * Incremental sync feed. Returns every transaction touched since `since`, plus the
+ * database's own clock to use as the next watermark — using the DB clock rather
+ * than the instance's avoids drift between serverless instances.
+ */
+export async function loadTransactionsSince(since: string): Promise<{ rows: Transaction[]; now: string }> {
+  if (!sql) return { rows: [], now: new Date().toISOString() };
+  const [rowsRes, clockRes] = await Promise.all([
+    sql`SELECT data FROM app_transactions WHERE updated_at > ${since} ORDER BY updated_at ASC`,
+    sql`SELECT now() AS now`,
+  ]);
+  const rows = rowsRes as { data: Transaction }[];
+  const clock = clockRes as { now: string }[];
+  return { rows: rows.map((r) => r.data), now: new Date(clock[0].now).toISOString() };
+}
+
+export async function loadAuditSince(since: string, limit = 2000): Promise<AuditLog[]> {
+  if (!sql) return [];
+  const rows = await sql`SELECT data FROM app_audit WHERE ts > ${since} ORDER BY ts DESC LIMIT ${limit}` as { data: AuditLog }[];
+  return rows.map((r) => r.data);
 }
 export interface RegisterPage {
   id: string;

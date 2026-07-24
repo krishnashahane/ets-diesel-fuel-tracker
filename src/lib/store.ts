@@ -12,6 +12,7 @@ import sitesSeed from '@/data/sites.json';
 import txSeed from '@/data/transactions.seed.json';
 import {
   pgEnabled, ensureSchema, loadUsers, loadTransactions, loadAudit, loadMasters, loadSettings,
+  loadTransactionsSince, loadAuditSince,
   upsertUser, insertTransaction, insertAudit, upsertMaster, saveSettingsRow,
   insertRegisterPage, loadRegisterPage, type MasterType, type RegisterPage,
 } from './pg';
@@ -33,7 +34,19 @@ interface DB {
   seq: number;
 }
 
-const g = globalThis as unknown as { __SFM_DB?: DB; __SFM_READY?: Promise<void> };
+const g = globalThis as unknown as {
+  __SFM_DB?: DB;
+  __SFM_READY?: Promise<void>;
+  __SFM_SYNC?: { watermark: string; auditAt: string; lastAt: number; inflight?: Promise<void> };
+};
+
+// How often a warm instance re-checks Postgres for work done by OTHER instances.
+// Vercel runs many concurrent instances: without this, an entry submitted on
+// instance A stays invisible to warm instance B until B cold-starts.
+const SYNC_INTERVAL_MS = 10_000;
+// Re-scan a short window on every poll. Merging is keyed by id and therefore
+// idempotent, so the overlap costs nothing and closes the commit-visibility gap.
+const SYNC_OVERLAP_MS = 5_000;
 
 function seedDb(): DB {
   return {
@@ -71,6 +84,9 @@ async function hydrate(d: DB): Promise<void> {
   d.transactions = [...newOnes, ...merged];
   // Audit lives only in the DB.
   d.audit = dbAudit;
+  // Everything loaded above is current as of now — start polling from here.
+  const now = new Date().toISOString();
+  g.__SFM_SYNC = { watermark: now, auditAt: dbAudit[0]?.ts ?? now, lastAt: Date.now() };
   // Masters: persisted additions/edits override matching seeds, new ones prepended.
   for (const { mtype, data } of dbMasters) {
     const arr = d[mtype] as unknown as Record<string, unknown>[];
@@ -80,7 +96,81 @@ async function hydrate(d: DB): Promise<void> {
   }
 }
 
-// Ensures the singleton is initialised and hydrated exactly once per instance.
+// Merge one transaction into the in-memory list: replace by id, else prepend.
+function mergeTransaction(d: DB, t: Transaction): void {
+  const i = d.transactions.findIndex((x) => x.id === t.id);
+  if (i >= 0) d.transactions[i] = t;
+  else d.transactions.unshift(t);
+}
+
+/**
+ * Pull everything other instances have changed since the last poll.
+ *
+ * Transactions and audit are incremental (indexed on updated_at / ts, so a quiet
+ * poll matches zero rows). Users, settings and masters are small enough to
+ * re-read whole — and users MUST be current, because authorisation reads them:
+ * a deactivated account has to lose access everywhere, not just where it was
+ * deactivated.
+ */
+async function syncFromDb(d: DB): Promise<void> {
+  if (!pgEnabled) return;
+  const s = g.__SFM_SYNC;
+  if (!s) return;
+
+  const since = new Date(Date.parse(s.watermark) - SYNC_OVERLAP_MS).toISOString();
+  const [tx, audit, users, settings, masters] = await Promise.all([
+    loadTransactionsSince(since),
+    loadAuditSince(new Date(Date.parse(s.auditAt) - SYNC_OVERLAP_MS).toISOString()),
+    loadUsers(),
+    loadSettings(),
+    loadMasters(),
+  ]);
+
+  for (const t of tx.rows) mergeTransaction(d, t);
+  s.watermark = tx.now;
+
+  if (audit.length) {
+    const known = new Set(d.audit.map((a) => a.id));
+    const fresh = audit.filter((a) => !known.has(a.id));
+    if (fresh.length) {
+      d.audit = [...fresh, ...d.audit];
+      if (d.audit.length > 5000) d.audit.length = 5000;
+    }
+    s.auditAt = audit[0].ts;
+  }
+
+  for (const u of users) {
+    const i = d.users.findIndex((x) => x.id === u.id || x.username.toLowerCase() === u.username.toLowerCase());
+    if (i >= 0) d.users[i] = u; else d.users.push(u);
+  }
+  if (settings) d.settings = { ...DEFAULT_SETTINGS, ...settings };
+  for (const { mtype, data } of masters) {
+    const arr = d[mtype] as unknown as Record<string, unknown>[];
+    const key = masterKey(mtype, data as Record<string, unknown>);
+    const i = arr.findIndex((x) => masterKey(mtype, x) === key);
+    if (i >= 0) arr[i] = data as never; else arr.unshift(data as never);
+  }
+}
+
+// Rate-limited, de-duplicated sync. At most one poll per instance per interval,
+// and concurrent requests share the same in-flight promise.
+async function maybeSync(d: DB): Promise<void> {
+  if (!pgEnabled || !g.__SFM_SYNC) return;
+  const s = g.__SFM_SYNC;
+  if (s.inflight) { await s.inflight; return; }
+  if (Date.now() - s.lastAt < SYNC_INTERVAL_MS) return;
+  s.lastAt = Date.now();
+  s.inflight = syncFromDb(d)
+    // A failed poll must never fail the request — serve the current snapshot.
+    .catch((e) => { console.error('DB sync failed:', e); })
+    .finally(() => { s.inflight = undefined; });
+  await s.inflight;
+}
+
+/**
+ * Initialise the singleton (once per instance), then keep it current by polling
+ * for changes made by other instances.
+ */
 export async function ensureDb(): Promise<DB> {
   if (!g.__SFM_DB) g.__SFM_DB = seedDb();
   if (!g.__SFM_READY) {
@@ -91,6 +181,7 @@ export async function ensureDb(): Promise<DB> {
     });
   }
   await g.__SFM_READY;
+  await maybeSync(g.__SFM_DB);
   return g.__SFM_DB;
 }
 
@@ -102,7 +193,12 @@ export function db(): DB {
 
 export function nextId(prefix: string): string {
   const d = db();
-  return `${prefix}${Date.now().toString(36)}${(d.seq++).toString(36)}`;
+  // The timestamp+counter pair is only unique WITHIN one instance. Vercel runs
+  // many instances concurrently, so a random suffix is what actually prevents
+  // two of them minting the same id — which the upsert would resolve by silently
+  // overwriting one transaction with the other.
+  const rand = Math.floor(Math.random() * 0x1000000).toString(36);
+  return `${prefix}${Date.now().toString(36)}${(d.seq++).toString(36)}${rand}`;
 }
 
 // Write-through helpers: mutate memory AND persist. Persistence failures are logged,
