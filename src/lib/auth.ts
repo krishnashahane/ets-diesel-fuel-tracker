@@ -10,7 +10,15 @@ if (!SECRET_STR || SECRET_STR.length < 32) {
 }
 const secret = new TextEncoder().encode(SECRET_STR || 'dev-only-insecure-secret-change-me-please-32b');
 
-export const COOKIE_NAME = 'sfm_session';
+const PROD = process.env.NODE_ENV === 'production';
+
+// __Host- prefix: the browser itself then enforces Secure + Path=/ + no Domain,
+// which blocks cookie fixation from a sibling subdomain. Only valid over HTTPS,
+// so the plain name is used for local http development.
+export const COOKIE_NAME = PROD ? '__Host-sfm_session' : 'sfm_session';
+
+const ISSUER = 'sfm-diesel';
+const AUDIENCE = 'sfm-diesel-app';
 const MAX_AGE = 60 * 60 * 8; // 8h
 
 export interface SessionPayload {
@@ -20,24 +28,37 @@ export interface SessionPayload {
   role: Role;
 }
 
+const ROLES: Role[] = ['superadmin', 'admin', 'operations', 'site_rep', 'supervisor', 'driver'];
+
 export async function signSession(p: SessionPayload): Promise<string> {
   return new SignJWT({ username: p.username, name: p.name, role: p.role })
-    .setProtectedHeader({ alg: 'HS256' })
+    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
     .setSubject(p.sub)
+    .setIssuer(ISSUER)
+    .setAudience(AUDIENCE)
     .setIssuedAt()
+    .setJti(crypto.randomUUID())
     .setExpirationTime(`${MAX_AGE}s`)
     .sign(secret);
 }
 
 export async function verifySession(token: string): Promise<SessionPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, secret, { algorithms: ['HS256'] });
-    if (!payload.sub || !payload.role) return null;
+    const { payload } = await jwtVerify(token, secret, {
+      algorithms: ['HS256'],      // pinned: never honour "alg" from the token header
+      issuer: ISSUER,
+      audience: AUDIENCE,
+      clockTolerance: 5,
+    });
+    // Reject anything whose role is not one we recognise, rather than trusting
+    // an arbitrary string to flow into the permission matrix.
+    const role = payload.role as Role;
+    if (!payload.sub || !ROLES.includes(role)) return null;
     return {
       sub: payload.sub,
       username: String(payload.username ?? ''),
       name: String(payload.name ?? ''),
-      role: payload.role as Role,
+      role,
     };
   } catch {
     return null;
@@ -46,7 +67,7 @@ export async function verifySession(token: string): Promise<SessionPayload | nul
 
 export const cookieOptions = {
   httpOnly: true as const,
-  secure: process.env.NODE_ENV === 'production',
+  secure: PROD,
   sameSite: 'strict' as const,
   path: '/',
   maxAge: MAX_AGE,

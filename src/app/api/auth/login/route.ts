@@ -5,8 +5,10 @@ import { db, ensureDb } from '@/lib/store';
 import { signSession, COOKIE_NAME, cookieOptions } from '@/lib/auth';
 import { rateLimit } from '@/lib/ratelimit';
 import { logAudit } from '@/lib/audit';
+import { clientIp, NO_STORE } from '@/lib/security';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const schema = z.object({
   username: z.string().min(1).max(64),
@@ -21,36 +23,40 @@ const schema = z.object({
   }).nullable().optional(),
 });
 
-function ip(req: NextRequest) {
-  return req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
-}
-
 export async function POST(req: NextRequest) {
-  const addr = ip(req);
+  const addr = clientIp(req);
+  // Per-IP budget stops password spraying from one source…
   const rl = rateLimit(`login:${addr}`, 8, 60_000);
-  if (!rl.ok) return NextResponse.json({ error: 'Too many attempts. Try again later.' }, { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } });
+  if (!rl.ok) return NextResponse.json({ error: 'Too many attempts. Try again later.' }, { status: 429, headers: { ...NO_STORE, 'Retry-After': String(rl.retryAfter) } });
 
   let body: unknown;
-  try { body = await req.json(); } catch { return NextResponse.json({ error: 'Invalid request' }, { status: 400 }); }
+  try { body = await req.json(); } catch { return NextResponse.json({ error: 'Invalid request' }, { status: 400, headers: NO_STORE }); }
   const parsed = schema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid credentials' }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: 'Invalid username or password' }, { status: 400, headers: NO_STORE });
 
   const { username, password, geo, device } = parsed.data;
+
+  // …and a per-account budget stops a distributed attack on one known account.
+  const acct = rateLimit(`login-acct:${username.toLowerCase()}`, 10, 15 * 60_000);
+  if (!acct.ok) return NextResponse.json({ error: 'Too many attempts for this account. Try again later.' }, { status: 429, headers: { ...NO_STORE, 'Retry-After': String(acct.retryAfter) } });
+
   await ensureDb();
   const user = db().users.find((u) => u.username.toLowerCase() === username.toLowerCase());
   // Constant-ish time: always run a compare.
-  const hash = user?.passwordHash || '$2a$12$0000000000000000000000000000000000000000000000000000';
+  // A real bcrypt hash of a random value, so the compare cost is identical for
+  // unknown users — no timing signal that reveals which usernames exist.
+  const hash = user?.passwordHash || '$2a$12$C6UzMDM.H6dfI/f/IKcEe.9tPmpEEhcOZfVfvzHqAaFvyj0OTOEBu';
   const valid = await bcrypt.compare(password, hash);
 
   if (!user || !user.active || !valid) {
     await logAudit({ userId: user?.id || 'unknown', username, action: 'LOGIN_FAIL', entity: 'auth', entityId: '', ip: addr, geo: geo ?? null, device: device ?? null });
-    return NextResponse.json({ error: 'Invalid username or password' }, { status: 401 });
+    return NextResponse.json({ error: 'Invalid username or password' }, { status: 401, headers: NO_STORE });
   }
 
   const token = await signSession({ sub: user.id, username: user.username, name: user.name, role: user.role });
   await logAudit({ userId: user.id, username: user.username, action: 'LOGIN', entity: 'auth', entityId: user.id, ip: addr, geo: geo ?? null, device: device ?? null });
 
-  const res = NextResponse.json({ ok: true, user: { id: user.id, username: user.username, name: user.name, role: user.role } });
+  const res = NextResponse.json({ ok: true, user: { id: user.id, username: user.username, name: user.name, role: user.role } }, { headers: NO_STORE });
   res.cookies.set(COOKIE_NAME, token, cookieOptions);
   return res;
 }

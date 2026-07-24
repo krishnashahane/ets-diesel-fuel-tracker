@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { PageHeader } from '@/components/ui';
 import { getDevice, getGeo, fileToDataURL } from '@/lib/clientmeta';
 import { runOcr, terminateOcr, type OcrFields } from '@/lib/ocr';
+import { MANDATORY_FIELDS } from '@/lib/rules/validation';
 import type { GeoPoint, AppSettings } from '@/lib/types';
 import { DEFAULT_SETTINGS } from '@/lib/types';
 
@@ -82,15 +83,22 @@ export default function DieselEntryForm() {
 
   const photoCount = Object.values(photos).filter(Boolean).length;
   const photosOk = !cfg.requirePhotos || photoCount === 4;
-  const ready = !!(f.co && f.pump && f.vehicleNo && f.driverName && num(f.diesel) > 0 && num(f.rate) > 0 && photosOk);
+  // The four business-mandatory fields, shown to the operator as a live checklist.
+  const missing = MANDATORY_FIELDS.filter(({ field }) => {
+    if (field === 'diesel') return !(num(f.diesel) > 0);
+    if (field === 'currentReading') return !(num(f.currentReading) > 0);
+    if (field === 'vehicleNo') return !f.vehicleNo.trim();
+    return !f.pump.trim();
+  });
+  const ready = !!(f.co && f.driverName && num(f.rate) > 0 && photosOk) && missing.length === 0;
 
   async function submit(force = false) {
     setSubmitting(true); setMsg(null);
     try {
       const device = getDevice();
       const payload = {
-        source: 'pump' as const, fuelType: 'Diesel' as const, date: f.date, billNo: '',
-        co: f.co, pump: f.pump, vehicleNo: f.vehicleNo, driverName: f.driverName,
+        source: 'pump' as const, fuelType: 'Diesel' as const, entryMode: 'manual' as const, date: f.date, billNo: '',
+        co: f.co, pump: f.pump, fillingLocation: f.pump, vehicleNo: f.vehicleNo, driverName: f.driverName,
         diesel: num(f.diesel), rate: num(f.rate), prevReading: num(f.prevReading),
         currentReading: num(f.currentReading), fixAvg: 0, hasReceipt: !!photos.bill,
         remarks: f.remarks, photos, geo, device, ocrConfidence: avgOcr, force,
@@ -130,11 +138,11 @@ export default function DieselEntryForm() {
             <input className="input" list="dc-sites" value={f.co} onChange={(e) => set('co', e.target.value)} placeholder="Select cost center" />
             <datalist id="dc-sites">{opts?.sites.map((s) => <option key={s} value={s} />)}</datalist>
           </Field>
-          <Field label="Pump *">
-            <input className="input" list="dc-pumps" value={f.pump} onChange={(e) => set('pump', e.target.value)} placeholder="Select pump / vendor" />
+          <Field label="Pump Name / Filling Location *">
+            <input className="input" list="dc-pumps" value={f.pump} onChange={(e) => set('pump', e.target.value)} placeholder="Select pump / filling location" />
             <datalist id="dc-pumps">{opts?.pumps.map((s) => <option key={s} value={s} />)}</datalist>
           </Field>
-          <Field label="Vehicle Number *">
+          <Field label="Bus Number *">
             <input className="input" list="dc-vehicles" value={f.vehicleNo} onChange={(e) => pickVehicle(e.target.value.toUpperCase())} placeholder="e.g. MH14LB9060" />
             <datalist id="dc-vehicles">{opts?.vehicles.slice(0, 1500).map((v) => <option key={v.no} value={v.no} />)}</datalist>
           </Field>
@@ -148,8 +156,8 @@ export default function DieselEntryForm() {
           <Field label="Rate (₹/L) *">
             <input className="input" type="number" min="0" step="0.01" value={f.rate} onChange={(e) => set('rate', e.target.value)} />
           </Field>
-          <Field label="Odometer Reading">
-            <input className="input" type="number" min="0" step="1" value={f.currentReading} onChange={(e) => set('currentReading', e.target.value)} placeholder="Current" />
+          <Field label="Odometer Reading *">
+            <input className="input" type="number" min="0" step="1" value={f.currentReading} onChange={(e) => set('currentReading', e.target.value)} placeholder="Current km reading" />
           </Field>
           <Field label="Previous Odometer">
             <input className="input" type="number" min="0" step="1" value={f.prevReading} onChange={(e) => set('prevReading', e.target.value)} placeholder="Optional" />
@@ -186,6 +194,12 @@ export default function DieselEntryForm() {
             </div>
           ))}
         </div>
+
+        {missing.length > 0 && (
+          <div className="mt-5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-200">
+            Mandatory for every diesel entry — still missing: <strong>{missing.map((m) => m.label).join(', ')}</strong>
+          </div>
+        )}
 
         {msg && <div className={`mt-5 rounded-lg px-3 py-2 text-sm ring-1 ${msg.type === 'ok' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-red-50 text-red-700 ring-red-200'}`}>{msg.text}</div>}
 

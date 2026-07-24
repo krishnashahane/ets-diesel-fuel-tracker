@@ -1,21 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import { db, nextId, ensureDb, saveTransaction, getSettings } from '@/lib/store';
 import { requirePerm, AuthError } from '@/lib/session';
 import { validateEntry, norm, type EntryInput } from '@/lib/rules/validation';
 import { calculate } from '@/lib/rules/calculations';
 import { detectExceptions, overallRisk } from '@/lib/rules/exceptions';
 import { logAudit } from '@/lib/audit';
+import { entrySchema, type EntryPayload } from '@/lib/schemas';
+import { clientIp, NO_STORE } from '@/lib/security';
 import type { Transaction } from '@/lib/types';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const handle = (e: unknown) =>
   e instanceof AuthError
-    ? NextResponse.json({ error: e.message }, { status: e.status })
-    : NextResponse.json({ error: 'Server error' }, { status: 500 });
+    ? NextResponse.json({ error: e.message }, { status: e.status, headers: NO_STORE })
+    : NextResponse.json({ error: 'Server error' }, { status: 500, headers: NO_STORE });
 
-const ipOf = (req: NextRequest) => req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+const ipOf = clientIp;
 
 export async function GET(req: NextRequest) {
   try {
@@ -38,6 +40,8 @@ export async function GET(req: NextRequest) {
     if (from) rows = rows.filter((t) => t.date >= from);
     if (to) rows = rows.filter((t) => t.date <= to);
     if (onlyExceptions) rows = rows.filter((t) => t.exceptions && t.exceptions.length > 0);
+    const mode = sp.get('mode');
+    if (mode === 'register' || mode === 'manual') rows = rows.filter((t) => (t.entryMode ?? 'manual') === mode);
 
     const total = rows.length;
     const start = (page - 1) * size;
@@ -45,62 +49,32 @@ export async function GET(req: NextRequest) {
     const items = rows.slice(start, start + size).map(({ photos, ...t }) => ({
       ...t, photoCount: photos ? Object.values(photos).filter(Boolean).length : 0,
     }));
-    return NextResponse.json({ items, total, page, size });
+    return NextResponse.json({ items, total, page, size }, { headers: NO_STORE });
   } catch (e) { return handle(e); }
 }
-
-const entrySchema = z.object({
-  source: z.enum(['pump', 'tanker']),
-  fuelType: z.enum(['Diesel', 'CNG']).default('Diesel'),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  billNo: z.string().max(64).default(''),
-  co: z.string().min(1).max(120),
-  pump: z.string().max(120).default(''),
-  vehicleNo: z.string().min(1).max(40),
-  driverName: z.string().min(1).max(120),
-  diesel: z.number().finite().nonnegative(),
-  rate: z.number().finite().nonnegative(),
-  currentReading: z.number().finite().nonnegative().default(0),
-  prevReading: z.number().finite().nonnegative().default(0),
-  fixAvg: z.number().finite().nonnegative().default(0),
-  hasReceipt: z.boolean().default(false),
-  remarks: z.string().max(500).optional(),
-  fillingLocation: z.string().max(120).optional(),
-  force: z.boolean().default(false),
-  photos: z.object({
-    plate: z.string().max(700_000).optional(),
-    bill: z.string().max(700_000).optional(),
-    meter: z.string().max(700_000).optional(),
-    odometer: z.string().max(700_000).optional(),
-  }).partial().optional(),
-  geo: z.object({
-    lat: z.number(), lng: z.number(), accuracy: z.number(),
-    ts: z.string(), status: z.enum(['ok', 'denied', 'unavailable']).optional(),
-  }).nullable().optional(),
-  device: z.object({
-    ua: z.string().max(400), browser: z.string().max(40),
-    os: z.string().max(40), deviceType: z.enum(['mobile', 'tablet', 'desktop']),
-  }).nullable().optional(),
-  ocrConfidence: z.number().min(0).max(100).optional(),
-});
 
 export async function POST(req: NextRequest) {
   try {
     const s = await requirePerm('tx:create');
     await ensureDb();
     let body: unknown;
-    try { body = await req.json(); } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
+    try { body = await req.json(); } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400, headers: NO_STORE }); }
     const parsed = entrySchema.safeParse(body);
-    if (!parsed.success) return NextResponse.json({ error: 'Validation failed', issues: parsed.error.flatten() }, { status: 400 });
+    if (!parsed.success) {
+      // Surface field messages in the same shape the client already renders.
+      const errors = parsed.error.issues.map((i) => ({ field: String(i.path[0] ?? ''), message: i.message }));
+      return NextResponse.json({ error: 'Validation failed', errors, issues: parsed.error.flatten() }, { status: 400, headers: NO_STORE });
+    }
 
     const d = db();
-    const input = parsed.data as EntryInput & { force: boolean };
+    const pd = parsed.data as unknown as EntryPayload;
+    const input = pd as unknown as EntryInput & { force: boolean };
     const veh = d.vehicles.find((v) => v.vehicleNo === norm(input.vehicleNo));
     const fixAvg = input.fixAvg || veh?.fixedAvg || veh?.standardAvg || 0;
     const e: EntryInput = { ...input, vehicleNo: norm(input.vehicleNo), fixAvg };
 
     const result = validateEntry(e, { vehicles: d.vehicles, drivers: d.drivers, transactions: d.transactions });
-    if (!result.ok) return NextResponse.json({ error: 'Validation failed', errors: result.errors, warnings: result.warnings }, { status: 422 });
+    if (!result.ok) return NextResponse.json({ error: 'Validation failed', errors: result.errors, warnings: result.warnings }, { status: 422, headers: NO_STORE });
 
     const calc = calculate(e);
     const exceptions = detectExceptions(e, calc, { vehicle: veh, transactions: d.transactions });
@@ -109,9 +83,8 @@ export async function POST(req: NextRequest) {
 
     // High/critical exceptions require explicit override to submit.
     if (hasBlocking && !input.force)
-      return NextResponse.json({ error: 'Exceptions require review', exceptions, calc, warnings: result.warnings, needsForce: true }, { status: 409 });
+      return NextResponse.json({ error: 'Exceptions require review', exceptions, calc, warnings: result.warnings, needsForce: true }, { status: 409, headers: NO_STORE });
 
-    const pd = parsed.data;
     const cfg = getSettings();
     const photos = pd.photos;
     const photoCount = photos ? Object.values(photos).filter(Boolean).length : 0;
@@ -155,10 +128,12 @@ export async function POST(req: NextRequest) {
       ocrConfidence,
       validationStatus,
       ip: ipOf(req),
+      entryMode: pd.entryMode ?? 'manual',
+      registerRef: null,
     };
     await saveTransaction(tx);
     await logAudit({ userId: s.sub, username: s.username, action: 'TX_CREATE', entity: 'transaction', entityId: tx.id, ip: ipOf(req), detail: `${tx.vehicleNo} ${tx.diesel}L risk=${risk ?? 'none'} photos=${photoCount}`, geo: pd.geo ?? null, device: pd.device ?? null });
 
-    return NextResponse.json({ ok: true, transaction: tx, calc, exceptions, warnings: result.warnings });
+    return NextResponse.json({ ok: true, transaction: tx, calc, exceptions, warnings: result.warnings }, { headers: NO_STORE });
   } catch (e) { return handle(e); }
 }

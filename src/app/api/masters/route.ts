@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { db, nextId, ensureDb, saveMaster } from '@/lib/store';
 import { requirePerm, AuthError } from '@/lib/session';
 import { logAudit } from '@/lib/audit';
+import { clientIp } from '@/lib/security';
 import { norm } from '@/lib/rules/validation';
 
 export const runtime = 'nodejs';
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
       const rec = { ...p.data, vehicleNo }; delete (rec as Record<string, unknown>).type;
       d.vehicles.unshift(rec as never);
       await saveMaster('vehicles', rec as Record<string, unknown>);
-      await logAudit({ userId: s.sub, username: s.username, action: 'MASTER_CREATE', entity: 'vehicle', entityId: vehicleNo, ip: 'session' });
+      await logAudit({ userId: s.sub, username: s.username, action: 'MASTER_CREATE', entity: 'vehicle', entityId: vehicleNo, ip: clientIp(req) });
       return NextResponse.json({ ok: true });
     }
     const p = namedSchema.safeParse(body);
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
     if (p.data.type === 'drivers') rec.licenseNo = p.data.licenseNo || '';
     (arr as unknown[]).unshift(rec);
     await saveMaster(p.data.type, rec);
-    await logAudit({ userId: s.sub, username: s.username, action: 'MASTER_CREATE', entity: p.data.type, entityId: p.data.name, ip: 'session' });
+    await logAudit({ userId: s.sub, username: s.username, action: 'MASTER_CREATE', entity: p.data.type, entityId: p.data.name, ip: clientIp(req) });
     return NextResponse.json({ ok: true });
   } catch (e) { return err(e); }
 }

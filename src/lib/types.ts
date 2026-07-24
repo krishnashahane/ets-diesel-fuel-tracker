@@ -32,6 +32,18 @@ export interface Site { id: string; name: string; active: boolean; }
 export type FuelType = 'Diesel' | 'CNG';
 export type Source = 'pump' | 'tanker';
 export type TxStatus = 'Draft' | 'Submitted' | 'Verified' | 'Approved' | 'Locked';
+// How the record reached the system. 'register' = extracted from a photo of the
+// manually maintained diesel register (off-site tanker locations).
+export type EntryMode = 'manual' | 'register';
+
+// Provenance for register-extracted rows, so every field can be traced back to the sheet.
+export interface RegisterRef {
+  batchId: string;      // one batch per uploaded register page
+  lineNo: number;       // 1-based line within the OCR text
+  rawLine: string;      // the OCR line the values came from
+  ocrConfidence: number;// page-level OCR confidence 0-100
+  edited: boolean;      // operator corrected one or more extracted values
+}
 
 export interface Transaction {
   id: string;
@@ -68,6 +80,8 @@ export interface Transaction {
   ocrConfidence?: number;          // 0-100, avg across photos (0 = no OCR)
   validationStatus?: ValidationStatus;
   ip?: string;                     // public IP captured server-side at submission
+  entryMode?: EntryMode;           // 'manual' (in-app capture) or 'register' (sheet upload)
+  registerRef?: RegisterRef | null;// provenance when entryMode === 'register'
 }
 
 // Super-admin configurable system settings.
@@ -104,12 +118,14 @@ export interface DeviceInfo {
   deviceType: 'mobile' | 'tablet' | 'desktop';
 }
 
-// Workflow: 4 required photos per submission, linked to the record.
+// Workflow: 4 required photos per in-app submission, linked to the record.
+// `register` replaces them for entries extracted from a manual register page.
 export interface EntryPhotos {
   plate?: string;      // Vehicle number plate
   bill?: string;       // Diesel slip / challan / bill
   meter?: string;      // Diesel filled meter
   odometer?: string;   // Vehicle odometer
+  register?: string;   // Photo of the manually maintained diesel register page
 }
 
 export type ValidationStatus = 'Valid' | 'Review' | 'Invalid';

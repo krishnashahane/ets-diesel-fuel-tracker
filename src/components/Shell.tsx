@@ -10,6 +10,7 @@ interface NavItem { href: string; label: string; icon: string; perm: Permission;
 const NAV: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: '📊', perm: 'dashboard:view' },
   { href: '/entry', label: 'Diesel Entry', icon: '⛽', perm: 'tx:create' },
+  { href: '/register-upload', label: 'Register Upload', icon: '📒', perm: 'tx:create' },
   { href: '/pump-entry', label: 'Pump Filling', icon: '🛢️', perm: 'tx:view' },
   { href: '/tanker-entry', label: 'Tanker Filling', icon: '🚚', perm: 'tx:view' },
   { href: '/transactions', label: 'Transactions', icon: '📋', perm: 'tx:view' },

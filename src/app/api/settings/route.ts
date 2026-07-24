@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { ensureDb, getSettings, updateSettings } from '@/lib/store';
 import { requireSession, requirePerm, AuthError } from '@/lib/session';
 import { logAudit } from '@/lib/audit';
+import { clientIp } from '@/lib/security';
 
 export const runtime = 'nodejs';
 
@@ -30,7 +31,7 @@ export async function PUT(req: NextRequest) {
     const p = schema.safeParse(await req.json().catch(() => ({})));
     if (!p.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
     const settings = await updateSettings(p.data);
-    await logAudit({ userId: s.sub, username: s.username, action: 'SETTINGS_UPDATE', entity: 'settings', entityId: 'app', ip: 'session', detail: JSON.stringify(p.data) });
+    await logAudit({ userId: s.sub, username: s.username, action: 'SETTINGS_UPDATE', entity: 'settings', entityId: 'app', ip: clientIp(req), detail: JSON.stringify(p.data) });
     return NextResponse.json({ ok: true, settings });
   } catch (e) { return err(e); }
 }

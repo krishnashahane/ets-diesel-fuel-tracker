@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { db, ensureDb, saveTransactionUpdate } from '@/lib/store';
 import { requirePerm, AuthError } from '@/lib/session';
 import { logAudit } from '@/lib/audit';
+import { clientIp } from '@/lib/security';
 import type { TxStatus } from '@/lib/types';
 
 export const runtime = 'nodejs';
@@ -44,7 +45,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       tx.status = 'Draft';
       tx.remarks = `${tx.remarks || ''} [REJECTED: ${parsed.data.reason || 'n/a'}]`.trim();
       await saveTransactionUpdate(tx);
-      await logAudit({ userId: s.sub, username: s.username, action: 'TX_REJECT', entity: 'transaction', entityId: id, ip: 'session' });
+      await logAudit({ userId: s.sub, username: s.username, action: 'TX_REJECT', entity: 'transaction', entityId: id, ip: clientIp(req) });
       return NextResponse.json({ ok: true, transaction: tx });
     }
 
@@ -53,7 +54,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const s = await requirePerm(PERM[next] ?? 'tx:verify');
     tx.status = next;
     await saveTransactionUpdate(tx);
-    await logAudit({ userId: s.sub, username: s.username, action: `TX_${next.toUpperCase()}`, entity: 'transaction', entityId: id, ip: 'session' });
+    await logAudit({ userId: s.sub, username: s.username, action: `TX_${next.toUpperCase()}`, entity: 'transaction', entityId: id, ip: clientIp(req) });
     return NextResponse.json({ ok: true, transaction: tx });
   } catch (e) {
     return e instanceof AuthError ? NextResponse.json({ error: e.message }, { status: e.status }) : NextResponse.json({ error: 'Server error' }, { status: 500 });

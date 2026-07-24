@@ -35,6 +35,7 @@ export function landingFor(role: Role): string {
 const PAGE_PERM: { prefix: string; perm: Permission }[] = [
   { prefix: '/dashboard', perm: 'dashboard:view' },
   { prefix: '/entry', perm: 'tx:create' },
+  { prefix: '/register-upload', perm: 'tx:create' },
   { prefix: '/pump-entry', perm: 'tx:view' },
   { prefix: '/tanker-entry', perm: 'tx:view' },
   { prefix: '/transactions', perm: 'tx:view' },

@@ -12,7 +12,8 @@ import sitesSeed from '@/data/sites.json';
 import txSeed from '@/data/transactions.seed.json';
 import {
   pgEnabled, ensureSchema, loadUsers, loadTransactions, loadAudit, loadMasters, loadSettings,
-  upsertUser, insertTransaction, insertAudit, upsertMaster, saveSettingsRow, type MasterType,
+  upsertUser, insertTransaction, insertAudit, upsertMaster, saveSettingsRow,
+  insertRegisterPage, loadRegisterPage, type MasterType, type RegisterPage,
 } from './pg';
 
 // Key used to identify a master record (vehicles by number, others by id).
@@ -130,6 +131,26 @@ export async function saveAudit(a: AuditLog): Promise<void> {
   d.audit.unshift(a);
   if (d.audit.length > 5000) d.audit.length = 5000;
   try { await insertAudit(a); } catch (e) { console.error('persist audit failed:', e); }
+}
+
+// Register page scans: persisted once per batch, fetched on demand. Kept OUT of the
+// hydrated in-memory DB — a warm instance must never hold N megabytes of scans.
+// A small bounded cache covers the no-Postgres (memory-only) deployment.
+const REG_CACHE_MAX = 12;
+function regCache(): Map<string, RegisterPage> {
+  const gg = globalThis as unknown as { __SFM_REG?: Map<string, RegisterPage> };
+  return (gg.__SFM_REG ??= new Map());
+}
+export async function saveRegisterPage(p: RegisterPage): Promise<void> {
+  const c = regCache();
+  c.set(p.id, p);
+  while (c.size > REG_CACHE_MAX) c.delete(c.keys().next().value as string);
+  try { await insertRegisterPage(p); } catch (e) { console.error('persist register page failed:', e); }
+}
+export async function getRegisterPage(id: string): Promise<RegisterPage | null> {
+  const cached = regCache().get(id);
+  if (cached) return cached;
+  try { return await loadRegisterPage(id); } catch (e) { console.error('load register page failed:', e); return null; }
 }
 
 export function getSettings(): AppSettings {

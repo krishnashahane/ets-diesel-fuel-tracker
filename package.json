@@ -6,6 +6,7 @@
     "node": ">=20 <25"
   },
   "scripts": {
+    "test": "node scripts/test-register-parser.mjs",
     "seed": "node scripts/parse-seed.mjs",
     "gen-users": "node scripts/gen-users.mjs",
     "dev": "next dev",

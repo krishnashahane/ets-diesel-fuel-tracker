@@ -29,8 +29,10 @@ function LoginForm() {
       const data = await res.json();
       if (!res.ok) { setErr(data.error || 'Login failed'); return; }
       const home = landingFor(data.user?.role);
-      const next = params.get('next') || home;
-      router.replace(next.startsWith('/') ? next : home);
+      const next = params.get('next') || '';
+      // Single leading slash only: "//evil.com" and "/\evil.com" are protocol-relative
+      // URLs that would redirect off-site, so anything but a plain path falls back home.
+      router.replace(/^\/(?![/\\])[A-Za-z0-9/_-]*$/.test(next) ? next : home);
       router.refresh();
     } catch { setErr('Network error. Please retry.'); }
     finally { setLoading(false); }

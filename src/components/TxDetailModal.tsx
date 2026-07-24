@@ -4,20 +4,31 @@ import { Spinner, money, fmt } from '@/components/ui';
 import type { Transaction } from '@/lib/types';
 
 const PHOTO_LABELS: Record<string, string> = {
-  plate: 'Number Plate', bill: 'Bill / Slip', meter: 'Diesel Meter', odometer: 'Odometer',
+  plate: 'Number Plate', bill: 'Bill / Slip', meter: 'Diesel Meter', odometer: 'Odometer', register: 'Register Page',
 };
+
+interface RegisterPageInfo { image: string; text: string; ocrConfidence: number; rowCount: number; createdBy: string; createdAt: string }
 
 export default function TxDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
   const [tx, setTx] = useState<Transaction | null>(null);
+  const [reg, setReg] = useState<RegisterPageInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
+    setReg(null);
     fetch(`/api/transactions/${id}`).then((r) => r.json()).then((j) => {
       if (!alive) return;
-      if (j.error) setErr(j.error); else setTx(j.transaction);
+      if (j.error) { setErr(j.error); return; }
+      setTx(j.transaction);
+      // The register scan is stored once per import batch, so fetch it separately.
+      const batch = j.transaction?.registerRef?.batchId;
+      if (batch) {
+        fetch(`/api/register/${batch}`).then((r) => r.json())
+          .then((p) => { if (alive && !p.error) setReg(p); }).catch(() => {});
+      }
     }).catch(() => alive && setErr('Failed to load')).finally(() => alive && setLoading(false));
     return () => { alive = false; };
   }, [id]);
@@ -45,14 +56,15 @@ export default function TxDetailModal({ id, onClose }: { id: string; onClose: ()
                 <Info k="Entry ID" v={tx.id} />
                 <Info k="Punching Date" v={tx.date} />
                 <Info k="Cost Center" v={tx.co} />
-                <Info k="Pump" v={tx.pump || '—'} />
-                <Info k="Vehicle" v={tx.vehicleNo} />
+                <Info k="Pump / Filling Location" v={tx.pump || tx.fillingLocation || '—'} />
+                <Info k="Bus Number" v={tx.vehicleNo} />
                 <Info k="Driver" v={tx.driverName} />
                 <Info k="Diesel Qty" v={`${fmt(tx.diesel)} L`} />
                 <Info k="Rate" v={money(tx.rate)} />
                 <Info k="Amount" v={money(tx.amount)} />
                 <Info k="Odometer" v={tx.currentReading ? fmt(tx.currentReading) : '—'} />
                 <Info k="Validation" v={tx.validationStatus || '—'} />
+                <Info k="Entry Mode" v={tx.entryMode === 'register' ? 'Register upload' : 'In-app capture'} />
                 <Info k="OCR Confidence" v={tx.ocrConfidence ? `${tx.ocrConfidence}%` : '—'} />
                 <Info k="Submitted By" v={tx.createdBy || '—'} />
                 <Info k="Submitted At" v={tx.createdAt ? new Date(tx.createdAt).toLocaleString() : '—'} />
@@ -62,6 +74,26 @@ export default function TxDetailModal({ id, onClose }: { id: string; onClose: ()
                 <div>
                   <h4 className="mb-2 text-sm font-semibold text-slate-700">Exceptions</h4>
                   {tx.exceptions.map((e, i) => <p key={i} className="text-sm text-amber-700">• {e.message} ({e.risk})</p>)}
+                </div>
+              )}
+
+              {tx.registerRef && (
+                <div>
+                  <h4 className="mb-2 text-sm font-semibold text-slate-700">Source Register Page</h4>
+                  <p className="text-xs text-slate-500">
+                    Batch {tx.registerRef.batchId} · line {tx.registerRef.lineNo} · scan confidence {tx.registerRef.ocrConfidence}%
+                    {tx.registerRef.edited ? ' · corrected by the operator before import' : ' · imported as read'}
+                  </p>
+                  {tx.registerRef.rawLine && (
+                    <p className="mt-1 rounded bg-slate-50 px-2 py-1 font-mono text-[11px] text-slate-600 ring-1 ring-slate-200">{tx.registerRef.rawLine}</p>
+                  )}
+                  {reg?.image && (
+                    <a href={reg.image} target="_blank" rel="noopener noreferrer" className="mt-2 block">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={reg.image} alt="Register page" className="max-h-72 w-full rounded-lg object-contain ring-1 ring-slate-200" />
+                      <span className="mt-1 block text-center text-xs text-brand-600">Open full register page ↗</span>
+                    </a>
+                  )}
                 </div>
               )}
 

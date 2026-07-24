@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { db, nextId, ensureDb, saveNewUser, saveUserUpdate } from '@/lib/store';
 import { requirePerm, AuthError } from '@/lib/session';
 import { logAudit } from '@/lib/audit';
+import { clientIp } from '@/lib/security';
 import type { Role, User } from '@/lib/types';
 
 export const runtime = 'nodejs';
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
       passwordHash: await bcrypt.hash(p.data.password, 12), active: true, createdAt: new Date().toISOString(),
     };
     await saveNewUser(user);
-    await logAudit({ userId: s.sub, username: s.username, action: 'USER_CREATE', entity: 'user', entityId: user.id, ip: 'session', detail: user.username });
+    await logAudit({ userId: s.sub, username: s.username, action: 'USER_CREATE', entity: 'user', entityId: user.id, ip: clientIp(req), detail: user.username });
     return NextResponse.json({ ok: true, user: safe(user) });
   } catch (e) { return err(e); }
 }
@@ -63,7 +64,7 @@ export async function PATCH(req: NextRequest) {
     }
     if (p.data.password) u.passwordHash = await bcrypt.hash(p.data.password, 12);
     await saveUserUpdate(u);
-    await logAudit({ userId: s.sub, username: s.username, action: 'USER_UPDATE', entity: 'user', entityId: u.id, ip: 'session', detail: p.data.password ? 'password reset' : `active=${u.active}` });
+    await logAudit({ userId: s.sub, username: s.username, action: 'USER_UPDATE', entity: 'user', entityId: u.id, ip: clientIp(req), detail: p.data.password ? 'password reset' : `active=${u.active}` });
     return NextResponse.json({ ok: true, user: safe(u) });
   } catch (e) { return err(e); }
 }

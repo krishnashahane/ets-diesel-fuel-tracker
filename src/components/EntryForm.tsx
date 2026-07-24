@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { PageHeader, riskBadge, fmt, money } from '@/components/ui';
+import { MANDATORY_FIELDS } from '@/lib/rules/validation';
 
 type Source = 'pump' | 'tanker';
 interface Options { vehicles: { no: string; fixAvg: number; costCenter: string }[]; drivers: string[]; pumps: string[]; sites: string[]; }
@@ -16,7 +17,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 export default function EntryForm({ source }: { source: Source }) {
   const [opts, setOpts] = useState<Options | null>(null);
   const [f, setF] = useState({
-    date: today(), billNo: '', co: '', pump: '', vehicleNo: '', driverName: '',
+    date: today(), billNo: '', co: '', pump: '', fillingLocation: '', vehicleNo: '', driverName: '',
     diesel: '', rate: '', prevReading: '', currentReading: '', fixAvg: '', hasReceipt: false, remarks: '',
   });
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -28,10 +29,21 @@ export default function EntryForm({ source }: { source: Source }) {
   useEffect(() => { fetch('/api/masters/options').then((r) => r.json()).then((j) => !j.error && setOpts(j)); }, []);
 
   const payload = useMemo(() => ({
-    source, fuelType: 'Diesel' as const, date: f.date, billNo: f.billNo, co: f.co, pump: f.pump,
+    source, fuelType: 'Diesel' as const, entryMode: 'manual' as const,
+    date: f.date, billNo: f.billNo, co: f.co, pump: f.pump,
+    fillingLocation: f.fillingLocation || f.pump,
     vehicleNo: f.vehicleNo, driverName: f.driverName, diesel: num(f.diesel), rate: num(f.rate),
-    prevReading: num(f.prevReading), currentReading: num(f.currentReading), fixAvg: num(f.fixAvg), hasReceipt: f.hasReceipt,
+    prevReading: num(f.prevReading), currentReading: num(f.currentReading), fixAvg: num(f.fixAvg),
+    hasReceipt: f.hasReceipt, remarks: f.remarks,
   }), [f, source]);
+
+  // The four business-mandatory fields, enforced identically on the server.
+  const missing = MANDATORY_FIELDS.filter(({ field }) => {
+    if (field === 'diesel') return !(num(f.diesel) > 0);
+    if (field === 'currentReading') return !(num(f.currentReading) > 0);
+    if (field === 'vehicleNo') return !f.vehicleNo.trim();
+    return !(f.pump.trim() || f.fillingLocation.trim());
+  });
 
   useEffect(() => {
     if (!f.vehicleNo && !f.diesel) { setPreview(null); return; }
@@ -80,7 +92,7 @@ export default function EntryForm({ source }: { source: Source }) {
               <input className="input" list="sites" value={f.co} onChange={(e) => set('co', e.target.value)} placeholder="e.g. VW Chakan" />
               <datalist id="sites">{opts?.sites.map((s) => <option key={s} value={s} />)}</datalist>
             </Field>
-            <Field label="Vehicle No. *" error={errFor('vehicleNo')}>
+            <Field label="Bus Number *" error={errFor('vehicleNo')}>
               <input className="input" list="vehicles" value={f.vehicleNo} onChange={(e) => pickVehicle(e.target.value.toUpperCase())} placeholder="MH14LB9060" />
               <datalist id="vehicles">{opts?.vehicles.slice(0, 1000).map((v) => <option key={v.no} value={v.no} />)}</datalist>
             </Field>
@@ -88,9 +100,12 @@ export default function EntryForm({ source }: { source: Source }) {
               <input className="input" list="drivers" value={f.driverName} onChange={(e) => set('driverName', e.target.value)} placeholder="Driver name" />
               <datalist id="drivers">{opts?.drivers.map((s) => <option key={s} value={s} />)}</datalist>
             </Field>
-            <Field label={source === 'pump' ? 'Petrol Pump / Vendor *' : 'Tanker / Supervisor'} error={errFor('pump')}>
-              <input className="input" list="pumps" value={f.pump} onChange={(e) => set('pump', e.target.value)} placeholder={source === 'pump' ? 'JAYHIND' : 'Tanker no.'} />
+            <Field label="Pump Name / Diesel Filling Location *" error={errFor('pump')}>
+              <input className="input" list="pumps" value={f.pump} onChange={(e) => set('pump', e.target.value)} placeholder={source === 'pump' ? 'JAYHIND' : 'Tanker / site location'} />
               <datalist id="pumps">{opts?.pumps.map((s) => <option key={s} value={s} />)}</datalist>
+            </Field>
+            <Field label={source === 'pump' ? 'Filling Location (optional)' : 'Tanker / Supervisor'}>
+              <input className="input" value={f.fillingLocation} onChange={(e) => set('fillingLocation', e.target.value)} placeholder={source === 'pump' ? 'Site / bay' : 'Tanker no.'} />
             </Field>
             <Field label="Transaction Date *" error={errFor('date')}>
               <input className="input" type="date" max={today()} value={f.date} onChange={(e) => set('date', e.target.value)} />
@@ -107,7 +122,7 @@ export default function EntryForm({ source }: { source: Source }) {
             <Field label="Previous Odometer" error={errFor('prevReading')}>
               <input className="input" type="number" min="0" step="1" value={f.prevReading} onChange={(e) => set('prevReading', e.target.value)} />
             </Field>
-            <Field label="Current Odometer" error={errFor('currentReading')}>
+            <Field label="Odometer Reading *" error={errFor('currentReading')}>
               <input className="input" type="number" min="0" step="1" value={f.currentReading} onChange={(e) => set('currentReading', e.target.value)} />
             </Field>
             <Field label="Standard Avg (km/L)">
@@ -122,13 +137,19 @@ export default function EntryForm({ source }: { source: Source }) {
             Receipt / register image attached
           </label>
 
+          {missing.length > 0 && (
+            <div className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-200">
+              Mandatory for every diesel entry — still missing: <strong>{missing.map((m) => m.label).join(', ')}</strong>
+            </div>
+          )}
+
           {msg && <div className={`mt-4 rounded-lg px-3 py-2 text-sm ring-1 ${msg.type === 'ok' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-red-50 text-red-700 ring-red-200'}`}>{msg.text}</div>}
 
           <div className="mt-5 flex gap-3">
             {!needsForce
-              ? <button className="btn-primary" disabled={submitting} onClick={() => submit(false)}>{submitting ? 'Saving…' : 'Validate & Save'}</button>
+              ? <button className="btn-primary" disabled={submitting || missing.length > 0} onClick={() => submit(false)}>{submitting ? 'Saving…' : 'Validate & Save'}</button>
               : <button className="btn-danger" disabled={submitting} onClick={() => submit(true)}>{submitting ? 'Saving…' : 'Confirm & Record with Exceptions'}</button>}
-            <button className="btn-ghost" onClick={() => { setF({ date: today(), billNo: '', co: '', pump: '', vehicleNo: '', driverName: '', diesel: '', rate: '', prevReading: '', currentReading: '', fixAvg: '', hasReceipt: false, remarks: '' }); setPreview(null); setMsg(null); setNeedsForce(false); }}>Reset</button>
+            <button className="btn-ghost" onClick={() => { setF({ date: today(), billNo: '', co: '', pump: '', fillingLocation: '', vehicleNo: '', driverName: '', diesel: '', rate: '', prevReading: '', currentReading: '', fixAvg: '', hasReceipt: false, remarks: '' }); setPreview(null); setMsg(null); setNeedsForce(false); }}>Reset</button>
           </div>
         </div>
 

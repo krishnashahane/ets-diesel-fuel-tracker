@@ -21,6 +21,24 @@ export interface EntryInput {
   fillingLocation?: string;
 }
 
+// Business-mandated fields for every diesel entry, in every entry mode.
+// Kept as data so the UI, the register grid and the API all show the same list.
+export const MANDATORY_FIELDS = [
+  { field: 'diesel', label: 'Diesel Quantity (Liters)' },
+  { field: 'currentReading', label: 'Odometer Reading' },
+  { field: 'vehicleNo', label: 'Bus Number' },
+  { field: 'pump', label: 'Pump Name / Diesel Filling Location' },
+] as const;
+
+// True when the four mandatory business fields are present. Used for fast
+// client-side gating; validateEntry remains the authoritative server check.
+export function hasMandatory(e: Partial<EntryInput>): boolean {
+  return Number(e.diesel) > 0
+    && Number(e.currentReading) > 0
+    && !!e.vehicleNo?.trim()
+    && !!(e.pump?.trim() || e.fillingLocation?.trim());
+}
+
 export interface ValidationIssue { field: string; message: string; }
 export interface ValidationResult {
   ok: boolean;
@@ -37,14 +55,20 @@ export function validateEntry(
   const err = (field: string, message: string) => errors.push({ field, message });
   const warn = (field: string, message: string) => warnings.push({ field, message });
 
-  // Mandatory fields
-  if (!e.vehicleNo?.trim()) err('vehicleNo', 'Vehicle number is required');
+  // Mandatory fields. The four business-critical ones (quantity, odometer, bus
+  // number, pump/filling location) are enforced for every entry regardless of
+  // source or entry mode — see MANDATORY_FIELDS.
+  if (!e.vehicleNo?.trim()) err('vehicleNo', 'Bus number is required');
   if (!e.driverName?.trim()) err('driverName', 'Driver is required');
   if (!e.co?.trim()) err('co', 'Client / site is required');
   if (!e.date?.trim()) err('date', 'Transaction date is required');
-  if (!(e.diesel > 0)) err('diesel', 'Fuel quantity must be greater than zero');
+  if (!(e.diesel > 0)) err('diesel', 'Diesel quantity (litres) is required and must be greater than zero');
   if (!(e.rate > 0)) err('rate', 'Rate must be greater than zero');
-  if (e.source === 'pump' && !e.pump?.trim()) err('pump', 'Pump/vendor is required');
+  if (!(e.currentReading > 0)) err('currentReading', 'Odometer reading is required and must be greater than zero');
+  // Pump name OR an explicit filling location satisfies the requirement — tanker
+  // fillings at remote sites record the location rather than a pump vendor.
+  if (!e.pump?.trim() && !e.fillingLocation?.trim())
+    err('pump', 'Pump name / diesel filling location is required');
 
   // Future date
   const today = new Date(); today.setHours(23, 59, 59, 999);

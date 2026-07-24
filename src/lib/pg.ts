@@ -45,6 +45,14 @@ export async function ensureSchema(): Promise<void> {
         data jsonb NOT NULL,
         updated_at timestamptz NOT NULL DEFAULT now()
       )`;
+      // Register page scans are stored once per batch and referenced by every
+      // transaction extracted from them — never duplicated per row.
+      await sql`CREATE TABLE IF NOT EXISTS app_register_pages (
+        id text PRIMARY KEY,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        created_by text NOT NULL DEFAULT '',
+        data jsonb NOT NULL
+      )`;
     })().catch((e) => { schemaReady = null; throw e; });
   }
   return schemaReady;
@@ -102,6 +110,27 @@ export async function insertTransaction(t: Transaction): Promise<void> {
             VALUES (${t.id}, ${created}, ${JSON.stringify(t)})
             ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`;
 }
+export interface RegisterPage {
+  id: string;
+  image: string;          // data URL of the register page photo
+  text: string;           // raw OCR text (evidence trail)
+  ocrConfidence: number;
+  rowCount: number;
+  createdAt: string;
+  createdBy: string;
+}
+export async function insertRegisterPage(p: RegisterPage): Promise<void> {
+  if (!sql) return;
+  await sql`INSERT INTO app_register_pages (id, created_at, created_by, data)
+            VALUES (${p.id}, ${p.createdAt}, ${p.createdBy}, ${JSON.stringify(p)})
+            ON CONFLICT (id) DO NOTHING`;
+}
+export async function loadRegisterPage(id: string): Promise<RegisterPage | null> {
+  if (!sql) return null;
+  const rows = await sql`SELECT data FROM app_register_pages WHERE id = ${id}` as { data: RegisterPage }[];
+  return rows[0]?.data ?? null;
+}
+
 export async function insertAudit(a: AuditLog): Promise<void> {
   if (!sql) return;
   await sql`INSERT INTO app_audit (id, ts, data)
