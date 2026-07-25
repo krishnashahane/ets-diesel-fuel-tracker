@@ -1,9 +1,10 @@
 'use client';
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { landingFor } from '@/lib/rbac';
 import { getDevice, getGeo } from '@/lib/clientmeta';
+import { LANGS, STORAGE_KEY, detectLang, t, type Lang } from '@/lib/i18n';
 
 function LoginForm() {
   const router = useRouter();
@@ -13,6 +14,15 @@ function LoginForm() {
   const [show, setShow] = useState(false);
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+  const [lang, setLang] = useState<Lang>('en');
+
+  // Resolve language after mount to avoid SSR/CSR hydration mismatch.
+  useEffect(() => setLang(detectLang()), []);
+  function pickLang(l: Lang) {
+    setLang(l);
+    try { localStorage.setItem(STORAGE_KEY, l); } catch { /* ignore */ }
+  }
+  const tr = (k: Parameters<typeof t>[1]) => t(lang, k);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,14 +37,14 @@ function LoginForm() {
         body: JSON.stringify({ username, password, device, geo }),
       });
       const data = await res.json();
-      if (!res.ok) { setErr(data.error || 'Login failed'); return; }
+      if (!res.ok) { setErr(data.error || tr('loginFailed')); return; }
       const home = landingFor(data.user?.role);
       const next = params.get('next') || '';
       // Single leading slash only: "//evil.com" and "/\evil.com" are protocol-relative
       // URLs that would redirect off-site, so anything but a plain path falls back home.
       router.replace(/^\/(?![/\\])[A-Za-z0-9/_-]*$/.test(next) ? next : home);
       router.refresh();
-    } catch { setErr('Network error. Please retry.'); }
+    } catch { setErr(tr('networkError')); }
     finally { setLoading(false); }
   }
 
@@ -85,12 +95,25 @@ function LoginForm() {
           <div className="w-full max-w-md">
             <div className="mb-8 flex flex-col items-center text-center lg:hidden">
               <Image src="/logo.png" alt="SFM" width={72} height={54} priority className="h-14 w-auto drop-shadow-lg" />
-              <h1 className="mt-3 text-xl font-bold text-white">SFM Diesel Management</h1>
+              <h1 className="mt-3 text-xl font-bold text-white">{tr('brandName')}</h1>
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-white/95 p-8 shadow-2xl backdrop-blur-xl ring-1 ring-black/5">
-              <h2 className="text-2xl font-bold tracking-tight text-slate-900">Welcome back</h2>
-              <p className="mt-1 text-sm text-slate-500">Sign in to continue to your dashboard.</p>
+              <div className="mb-4 flex items-center justify-end">
+                <label htmlFor="lang" className="sr-only">{tr('language')}</label>
+                <div className="relative">
+                  <svg className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 010 20M12 2a15 15 0 000 20" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  <select
+                    id="lang" value={lang} onChange={(e) => pickLang(e.target.value as Lang)}
+                    aria-label={tr('language')}
+                    className="cursor-pointer rounded-lg border border-slate-300 bg-white py-1.5 pl-8 pr-8 text-sm text-slate-700 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                  >
+                    {LANGS.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
+                  </select>
+                </div>
+              </div>
+              <h2 className="text-2xl font-bold tracking-tight text-slate-900">{tr('welcomeBack')}</h2>
+              <p className="mt-1 text-sm text-slate-500">{tr('subtitle')}</p>
 
               {err && (
                 <div role="alert" className="mt-5 flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700 ring-1 ring-red-200">
@@ -101,14 +124,14 @@ function LoginForm() {
 
               <form onSubmit={submit} className="mt-6 space-y-4">
                 <div>
-                  <label className="label">Username</label>
+                  <label className="label">{tr('username')}</label>
                   <input
                     className="input" value={username} onChange={(e) => setU(e.target.value)}
-                    autoComplete="username" autoFocus required placeholder="e.g. admin"
+                    autoComplete="username" autoFocus required placeholder={tr('usernamePlaceholder')}
                   />
                 </div>
                 <div>
-                  <label className="label">Password</label>
+                  <label className="label">{tr('password')}</label>
                   <div className="relative">
                     <input
                       className="input pr-11" type={show ? 'text' : 'password'} value={password}
@@ -117,7 +140,7 @@ function LoginForm() {
                     <button
                       type="button" onClick={() => setShow((s) => !s)}
                       className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-600"
-                      aria-label={show ? 'Hide password' : 'Show password'}
+                      aria-label={show ? tr('hidePassword') : tr('showPassword')}
                     >
                       {show ? (
                         <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8M9.9 4.2A9.6 9.6 0 0112 4c5 0 9 4.5 10 8-.4 1.3-1.2 2.8-2.4 4M6.1 6.1C3.9 7.6 2.5 9.8 2 12c1 3.5 5 8 10 8 1.4 0 2.7-.3 3.9-.9" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -130,9 +153,9 @@ function LoginForm() {
 
                 <button className="btn-primary group w-full py-2.5 text-base" disabled={loading || !username || !password}>
                   {loading ? (
-                    <span className="inline-flex items-center gap-2"><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />Signing in…</span>
+                    <span className="inline-flex items-center gap-2"><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />{tr('signingIn')}</span>
                   ) : (
-                    <span className="inline-flex items-center gap-2">Sign in
+                    <span className="inline-flex items-center gap-2">{tr('signIn')}
                       <svg className="h-4 w-4 transition-transform group-hover:translate-x-0.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.3 3.3a1 1 0 011.4 0l5 5a1 1 0 010 1.4l-5 5a1 1 0 01-1.4-1.4L13.6 11H4a1 1 0 110-2h9.6l-3.3-3.3a1 1 0 010-1.4z" clipRule="evenodd" /></svg>
                     </span>
                   )}
@@ -142,7 +165,7 @@ function LoginForm() {
 
             <p className="mt-6 flex items-center justify-center gap-1.5 text-center text-xs text-slate-400">
               <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" /></svg>
-              Secured connection · Activity is logged &amp; audited.
+              {tr('secured')}
             </p>
           </div>
         </div>
