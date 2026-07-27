@@ -87,6 +87,7 @@ export default function DieselEntryForm() {
   const missing = MANDATORY_FIELDS.filter(({ field }) => {
     if (field === 'diesel') return !(num(f.diesel) > 0);
     if (field === 'currentReading') return !(num(f.currentReading) > 0);
+    if (field === 'prevReading') return !(num(f.prevReading) > 0);
     if (field === 'vehicleNo') return !f.vehicleNo.trim();
     return !f.pump.trim();
   });
@@ -159,8 +160,8 @@ export default function DieselEntryForm() {
           <Field label="Odometer Reading *">
             <input className="input" type="number" min="0" step="1" value={f.currentReading} onChange={(e) => set('currentReading', e.target.value)} placeholder="Current km reading" />
           </Field>
-          <Field label="Previous Odometer">
-            <input className="input" type="number" min="0" step="1" value={f.prevReading} onChange={(e) => set('prevReading', e.target.value)} placeholder="Optional" />
+          <Field label="Previous Odometer *">
+            <input className="input" type="number" min="0" step="1" value={f.prevReading} onChange={(e) => set('prevReading', e.target.value)} placeholder="Last km reading" />
           </Field>
           <Field label="Remarks">
             <input className="input" value={f.remarks} onChange={(e) => set('remarks', e.target.value)} placeholder="Optional" />

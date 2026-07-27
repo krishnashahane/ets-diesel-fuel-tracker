@@ -41,6 +41,7 @@ export default function EntryForm({ source }: { source: Source }) {
   const missing = MANDATORY_FIELDS.filter(({ field }) => {
     if (field === 'diesel') return !(num(f.diesel) > 0);
     if (field === 'currentReading') return !(num(f.currentReading) > 0);
+    if (field === 'prevReading') return !(num(f.prevReading) > 0);
     if (field === 'vehicleNo') return !f.vehicleNo.trim();
     return !(f.pump.trim() || f.fillingLocation.trim());
   });
@@ -119,8 +120,8 @@ export default function EntryForm({ source }: { source: Source }) {
             <Field label="Rate (₹/L) *" error={errFor('rate')}>
               <input className="input" type="number" min="0" step="0.01" value={f.rate} onChange={(e) => set('rate', e.target.value)} />
             </Field>
-            <Field label="Previous Odometer" error={errFor('prevReading')}>
-              <input className="input" type="number" min="0" step="1" value={f.prevReading} onChange={(e) => set('prevReading', e.target.value)} />
+            <Field label="Previous Odometer *" error={errFor('prevReading')}>
+              <input className="input" type="number" min="0" step="1" value={f.prevReading} onChange={(e) => set('prevReading', e.target.value)} placeholder="Last km reading" />
             </Field>
             <Field label="Odometer Reading *" error={errFor('currentReading')}>
               <input className="input" type="number" min="0" step="1" value={f.currentReading} onChange={(e) => set('currentReading', e.target.value)} />

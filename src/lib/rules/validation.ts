@@ -26,6 +26,7 @@ export interface EntryInput {
 export const MANDATORY_FIELDS = [
   { field: 'diesel', label: 'Diesel Quantity (Liters)' },
   { field: 'currentReading', label: 'Odometer Reading' },
+  { field: 'prevReading', label: 'Previous Odometer' },
   { field: 'vehicleNo', label: 'Bus Number' },
   { field: 'pump', label: 'Pump Name / Diesel Filling Location' },
 ] as const;
@@ -35,6 +36,7 @@ export const MANDATORY_FIELDS = [
 export function hasMandatory(e: Partial<EntryInput>): boolean {
   return Number(e.diesel) > 0
     && Number(e.currentReading) > 0
+    && Number(e.prevReading) > 0
     && !!e.vehicleNo?.trim()
     && !!(e.pump?.trim() || e.fillingLocation?.trim());
 }
@@ -65,6 +67,7 @@ export function validateEntry(
   if (!(e.diesel > 0)) err('diesel', 'Diesel quantity (litres) is required and must be greater than zero');
   if (!(e.rate > 0)) err('rate', 'Rate must be greater than zero');
   if (!(e.currentReading > 0)) err('currentReading', 'Odometer reading is required and must be greater than zero');
+  if (!(e.prevReading > 0)) err('prevReading', 'Previous odometer is required and must be greater than zero');
   // Pump name OR an explicit filling location satisfies the requirement — tanker
   // fillings at remote sites record the location rather than a pump vendor.
   if (!e.pump?.trim() && !e.fillingLocation?.trim())
