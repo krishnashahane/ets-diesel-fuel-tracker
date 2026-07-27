@@ -9,6 +9,7 @@ import { getDevice, getGeo, fileToDataURL } from '@/lib/clientmeta';
 import { runRegisterOcr, terminateOcr } from '@/lib/ocr';
 import { parseRegisterText, missingRequired, type RegisterRow } from '@/lib/register';
 import type { GeoPoint } from '@/lib/types';
+import CameraCapture from '@/components/CameraCapture';
 
 interface Options { vehicles: { no: string; fixAvg: number; costCenter: string }[]; drivers: string[]; pumps: string[]; sites: string[]; }
 
@@ -244,12 +245,15 @@ export default function RegisterUpload() {
         <div className="space-y-4">
           <div className="card p-5">
             <h3 className="mb-3 text-sm font-semibold text-slate-700">1 · Register Page Photo</h3>
-            <input
-              ref={fileRef}
-              className="block w-full text-xs text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-600 file:px-3 file:py-1.5 file:text-white hover:file:bg-brand-700"
-              type="file" accept="image/*" capture="environment"
-              onChange={(e) => onFile(e.target.files?.[0])} disabled={scanning || importing}
-            />
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileRef}
+                className="block w-full text-xs text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-600 file:px-3 file:py-1.5 file:text-white hover:file:bg-brand-700"
+                type="file" accept="image/*"
+                onChange={(e) => onFile(e.target.files?.[0])} disabled={scanning || importing}
+              />
+              <CameraCapture label="Camera" onCapture={(file) => onFile(file)} />
+            </div>
             <p className="mt-2 text-xs text-slate-400">Shoot straight-on, fill the frame with the table, avoid shadows and glare.</p>
             {image && (
               // eslint-disable-next-line @next/next/no-img-element

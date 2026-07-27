@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { PageHeader, riskBadge, fmt, money } from '@/components/ui';
 import { MANDATORY_FIELDS } from '@/lib/rules/validation';
+import Combobox from '@/components/Combobox';
 
 type Source = 'pump' | 'tanker';
 interface Options { vehicles: { no: string; fixAvg: number; costCenter: string }[]; drivers: string[]; pumps: string[]; sites: string[]; }
@@ -90,20 +91,16 @@ export default function EntryForm({ source }: { source: Source }) {
         <div className="card p-5 lg:col-span-2">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Client / Site *" error={errFor('co')}>
-              <input className="input" list="sites" value={f.co} onChange={(e) => set('co', e.target.value)} placeholder="e.g. VW Chakan" />
-              <datalist id="sites">{opts?.sites.map((s) => <option key={s} value={s} />)}</datalist>
+              <Combobox value={f.co} onChange={(v) => set('co', v)} options={opts?.sites ?? []} placeholder="e.g. VW Chakan" />
             </Field>
             <Field label="Bus Number *" error={errFor('vehicleNo')}>
-              <input className="input" list="vehicles" value={f.vehicleNo} onChange={(e) => pickVehicle(e.target.value.toUpperCase())} placeholder="MH14LB9060" />
-              <datalist id="vehicles">{opts?.vehicles.slice(0, 1000).map((v) => <option key={v.no} value={v.no} />)}</datalist>
+              <Combobox value={f.vehicleNo} onChange={pickVehicle} options={(opts?.vehicles ?? []).map((v) => v.no)} placeholder="MH14LB9060" uppercase />
             </Field>
             <Field label="Driver *" error={errFor('driverName')}>
-              <input className="input" list="drivers" value={f.driverName} onChange={(e) => set('driverName', e.target.value)} placeholder="Driver name" />
-              <datalist id="drivers">{opts?.drivers.map((s) => <option key={s} value={s} />)}</datalist>
+              <Combobox value={f.driverName} onChange={(v) => set('driverName', v)} options={opts?.drivers ?? []} placeholder="Driver name" />
             </Field>
             <Field label="Pump Name / Diesel Filling Location *" error={errFor('pump')}>
-              <input className="input" list="pumps" value={f.pump} onChange={(e) => set('pump', e.target.value)} placeholder={source === 'pump' ? 'JAYHIND' : 'Tanker / site location'} />
-              <datalist id="pumps">{opts?.pumps.map((s) => <option key={s} value={s} />)}</datalist>
+              <Combobox value={f.pump} onChange={(v) => set('pump', v)} options={opts?.pumps ?? []} placeholder={source === 'pump' ? 'JAYHIND' : 'Tanker / site location'} />
             </Field>
             <Field label={source === 'pump' ? 'Filling Location (optional)' : 'Tanker / Supervisor'}>
               <input className="input" value={f.fillingLocation} onChange={(e) => set('fillingLocation', e.target.value)} placeholder={source === 'pump' ? 'Site / bay' : 'Tanker no.'} />

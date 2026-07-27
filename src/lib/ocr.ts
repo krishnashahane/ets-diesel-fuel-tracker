@@ -88,8 +88,9 @@ export async function runRegisterOcr(dataUrl: string): Promise<{ text: string; c
 // Never throws — OCR is best-effort. On failure returns empty result so manual entry proceeds.
 export async function runOcr(dataUrl: string): Promise<OcrResult> {
   try {
+    const prepared = await preprocessForOcr(dataUrl);
     const worker = await getWorker();
-    const { data } = await worker.recognize(dataUrl);
+    const { data } = await worker.recognize(prepared);
     const text = data.text || '';
     return { text, confidence: Math.round(data.confidence || 0), fields: parseFields(text) };
   } catch {

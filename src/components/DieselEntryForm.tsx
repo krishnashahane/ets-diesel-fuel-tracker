@@ -4,6 +4,8 @@ import { PageHeader } from '@/components/ui';
 import { getDevice, getGeo, fileToDataURL } from '@/lib/clientmeta';
 import { runOcr, terminateOcr, type OcrFields } from '@/lib/ocr';
 import { MANDATORY_FIELDS } from '@/lib/rules/validation';
+import CameraCapture from '@/components/CameraCapture';
+import Combobox from '@/components/Combobox';
 import type { GeoPoint, AppSettings } from '@/lib/types';
 import { DEFAULT_SETTINGS } from '@/lib/types';
 
@@ -136,20 +138,16 @@ export default function DieselEntryForm() {
             <input className="input" type="date" max={today()} value={f.date} onChange={(e) => set('date', e.target.value)} />
           </Field>
           <Field label="Cost Center *">
-            <input className="input" list="dc-sites" value={f.co} onChange={(e) => set('co', e.target.value)} placeholder="Select cost center" />
-            <datalist id="dc-sites">{opts?.sites.map((s) => <option key={s} value={s} />)}</datalist>
+            <Combobox value={f.co} onChange={(v) => set('co', v)} options={opts?.sites ?? []} placeholder="Select or type cost center" />
           </Field>
           <Field label="Pump Name / Filling Location *">
-            <input className="input" list="dc-pumps" value={f.pump} onChange={(e) => set('pump', e.target.value)} placeholder="Select pump / filling location" />
-            <datalist id="dc-pumps">{opts?.pumps.map((s) => <option key={s} value={s} />)}</datalist>
+            <Combobox value={f.pump} onChange={(v) => set('pump', v)} options={opts?.pumps ?? []} placeholder="Select or type pump / filling location" />
           </Field>
           <Field label="Bus Number *">
-            <input className="input" list="dc-vehicles" value={f.vehicleNo} onChange={(e) => pickVehicle(e.target.value.toUpperCase())} placeholder="e.g. MH14LB9060" />
-            <datalist id="dc-vehicles">{opts?.vehicles.slice(0, 1500).map((v) => <option key={v.no} value={v.no} />)}</datalist>
+            <Combobox value={f.vehicleNo} onChange={pickVehicle} options={(opts?.vehicles ?? []).map((v) => v.no)} placeholder="e.g. MH14LB9060" uppercase />
           </Field>
           <Field label="Driver *">
-            <input className="input" list="dc-drivers" value={f.driverName} onChange={(e) => set('driverName', e.target.value)} placeholder="Driver name" />
-            <datalist id="dc-drivers">{opts?.drivers.map((s) => <option key={s} value={s} />)}</datalist>
+            <Combobox value={f.driverName} onChange={(v) => set('driverName', v)} options={opts?.drivers ?? []} placeholder="Select or type driver name" />
           </Field>
           <Field label="Diesel Quantity (L) *">
             <input className="input" type="number" min="0" step="0.01" value={f.diesel} onChange={(e) => set('diesel', e.target.value)} />
@@ -184,12 +182,15 @@ export default function DieselEntryForm() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={photos[key]} alt={label} className="mb-2 h-32 w-full rounded-lg object-cover ring-1 ring-slate-200" />
               ) : null}
-              <input
-                ref={(el) => { fileRefs.current[key] = el; }}
-                className="block w-full text-xs text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-600 file:px-3 file:py-1.5 file:text-white hover:file:bg-brand-700"
-                type="file" accept="image/*" capture="environment"
-                onChange={(e) => onPhoto(key, e.target.files?.[0])} disabled={busy[key]}
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  ref={(el) => { fileRefs.current[key] = el; }}
+                  className="block w-full text-xs text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-600 file:px-3 file:py-1.5 file:text-white hover:file:bg-brand-700"
+                  type="file" accept="image/*"
+                  onChange={(e) => onPhoto(key, e.target.files?.[0])} disabled={busy[key]}
+                />
+                <CameraCapture label="Camera" onCapture={(file) => onPhoto(key, file)} />
+              </div>
               {busy[key] && <p className="mt-1 text-xs text-brand-600">Processing…</p>}
               {photos[key] && typeof ocr[key] !== 'number' && !busy[key] && <p className="mt-1 text-xs text-slate-400">Scanning text…</p>}
             </div>
