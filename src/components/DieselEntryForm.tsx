@@ -52,7 +52,12 @@ export default function DieselEntryForm() {
     setF((p) => {
       const n = { ...p };
       const fillNum = (k: keyof typeof f, v?: number) => { if (v && v > 0 && !n[k]) n[k] = String(v) as never; };
-      if (key === 'bill') { fillNum('rate', fields.rate); fillNum('diesel', fields.qty); }
+      if (key === 'bill') {
+        fillNum('rate', fields.rate);
+        // Quantity = litres if printed, else derived from amount ÷ rate.
+        const derived = fields.amount && fields.rate ? Math.round((fields.amount / fields.rate) * 100) / 100 : undefined;
+        fillNum('diesel', fields.qty ?? derived);
+      }
       if (key === 'meter') fillNum('diesel', fields.qty ?? fields.reading);
       if (key === 'odometer') fillNum('currentReading', fields.reading ?? fields.numbers.sort((a, b) => b - a)[0]);
       if (key === 'plate' && fields.plate && !n.vehicleNo) {

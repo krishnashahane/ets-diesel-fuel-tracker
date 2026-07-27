@@ -114,12 +114,23 @@ export function parseFields(text: string): OcrFields {
     return m && Number.isFinite(+m[1]) ? +m[1] : undefined;
   };
   const plateMatch = text.toUpperCase().replace(/\s|-/g, '').match(/[A-Z]{2}\d{1,2}[A-Z]{1,3}\d{3,4}/);
+
+  // Odometer is a 4–7 digit whole number; when unlabelled, the largest such
+  // integer on the image is overwhelmingly the reading (dates/times are shorter).
+  const intCandidates = (clean.match(/\d{4,7}/g) || []).map(Number).filter(Number.isFinite);
+  const readingByLabel = near(/(?:km|reading|odo|meter|mtr)\D{0,4}(\d+(?:\.\d+)?)/i);
+  const reading = readingByLabel ?? (intCandidates.length ? Math.max(...intCandidates) : undefined);
+
+  // Rate per litre in India sits in a narrow band; reject label mis-reads outside it.
+  const rateRaw = near(/(?:rate|price|\/l|per\s*l)\D{0,4}(\d+(?:\.\d+)?)/i);
+  const rate = rateRaw && rateRaw >= 50 && rateRaw <= 150 ? rateRaw : undefined;
+
   return {
     numbers,
     amount: near(/(?:amount|amt|total|rs\.?|₹)\D{0,4}(\d+(?:\.\d+)?)/i),
     qty: near(/(?:qty|quantity|litre|liter|ltr|vol)\D{0,4}(\d+(?:\.\d+)?)/i),
-    rate: near(/(?:rate|price|\/l|per\s*l)\D{0,4}(\d+(?:\.\d+)?)/i),
-    reading: near(/(?:km|reading|odo|meter|mtr)\D{0,4}(\d+(?:\.\d+)?)/i),
+    rate,
+    reading,
     plate: plateMatch?.[0],
   };
 }
