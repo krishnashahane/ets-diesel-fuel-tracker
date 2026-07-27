@@ -30,7 +30,20 @@ type Key =
   | 'loginFailed'
   | 'networkError'
   | 'secured'
-  | 'language';
+  | 'language'
+  | 'navDashboard'
+  | 'navEntry'
+  | 'navRegister'
+  | 'navPump'
+  | 'navTanker'
+  | 'navTransactions'
+  | 'navExceptions'
+  | 'navMasters'
+  | 'navUsers'
+  | 'navAudit'
+  | 'navSystem'
+  | 'signOut'
+  | 'systemTitle';
 
 const DICT: Record<Lang, Record<Key, string>> = {
   en: {
@@ -48,6 +61,19 @@ const DICT: Record<Lang, Record<Key, string>> = {
     networkError: 'Network error. Please retry.',
     secured: 'Secured connection · Activity is logged & audited.',
     language: 'Language',
+    navDashboard: 'Dashboard',
+    navEntry: 'Diesel Entry',
+    navRegister: 'Register Upload',
+    navPump: 'Pump Filling',
+    navTanker: 'Tanker Filling',
+    navTransactions: 'Transactions',
+    navExceptions: 'Exceptions',
+    navMasters: 'Master Data',
+    navUsers: 'Users',
+    navAudit: 'Audit Log',
+    navSystem: 'System',
+    signOut: 'Sign out',
+    systemTitle: 'Diesel Filling Management System',
   },
   hi: {
     brandName: 'SFM डीज़ल प्रबंधन',
@@ -64,6 +90,19 @@ const DICT: Record<Lang, Record<Key, string>> = {
     networkError: 'नेटवर्क त्रुटि। कृपया पुनः प्रयास करें।',
     secured: 'सुरक्षित कनेक्शन · गतिविधि लॉग और ऑडिट की जाती है।',
     language: 'भाषा',
+    navDashboard: 'डैशबोर्ड',
+    navEntry: 'डीज़ल प्रविष्टि',
+    navRegister: 'रजिस्टर अपलोड',
+    navPump: 'पंप फिलिंग',
+    navTanker: 'टैंकर फिलिंग',
+    navTransactions: 'लेन-देन',
+    navExceptions: 'अपवाद',
+    navMasters: 'मास्टर डेटा',
+    navUsers: 'उपयोगकर्ता',
+    navAudit: 'ऑडिट लॉग',
+    navSystem: 'सिस्टम',
+    signOut: 'साइन आउट',
+    systemTitle: 'डीज़ल फिलिंग प्रबंधन प्रणाली',
   },
   mr: {
     brandName: 'SFM डिझेल व्यवस्थापन',
@@ -80,6 +119,19 @@ const DICT: Record<Lang, Record<Key, string>> = {
     networkError: 'नेटवर्क त्रुटी. कृपया पुन्हा प्रयत्न करा.',
     secured: 'सुरक्षित कनेक्शन · क्रियाकलाप लॉग आणि ऑडिट केले जातात.',
     language: 'भाषा',
+    navDashboard: 'डॅशबोर्ड',
+    navEntry: 'डिझेल नोंद',
+    navRegister: 'रजिस्टर अपलोड',
+    navPump: 'पंप भरणे',
+    navTanker: 'टँकर भरणे',
+    navTransactions: 'व्यवहार',
+    navExceptions: 'अपवाद',
+    navMasters: 'मास्टर डेटा',
+    navUsers: 'वापरकर्ते',
+    navAudit: 'ऑडिट लॉग',
+    navSystem: 'सिस्टम',
+    signOut: 'साइन आउट',
+    systemTitle: 'डिझेल भरणे व्यवस्थापन प्रणाली',
   },
   gu: {
     brandName: 'SFM ડીઝલ વ્યવસ્થાપન',
@@ -96,6 +148,19 @@ const DICT: Record<Lang, Record<Key, string>> = {
     networkError: 'નેટવર્ક ભૂલ. કૃપા કરીને ફરી પ્રયાસ કરો.',
     secured: 'સુરક્ષિત કનેક્શન · પ્રવૃત્તિ લૉગ અને ઑડિટ થાય છે.',
     language: 'ભાષા',
+    navDashboard: 'ડેશબોર્ડ',
+    navEntry: 'ડીઝલ એન્ટ્રી',
+    navRegister: 'રજિસ્ટર અપલોડ',
+    navPump: 'પંપ ફિલિંગ',
+    navTanker: 'ટેન્કર ફિલિંગ',
+    navTransactions: 'વ્યવહારો',
+    navExceptions: 'અપવાદો',
+    navMasters: 'માસ્ટર ડેટા',
+    navUsers: 'વપરાશકર્તાઓ',
+    navAudit: 'ઑડિટ લૉગ',
+    navSystem: 'સિસ્ટમ',
+    signOut: 'સાઇન આઉટ',
+    systemTitle: 'ડીઝલ ફિલિંગ વ્યવસ્થાપન સિસ્ટમ',
   },
   te: {
     brandName: 'SFM డీజిల్ నిర్వహణ',
@@ -112,6 +177,19 @@ const DICT: Record<Lang, Record<Key, string>> = {
     networkError: 'నెట్‌వర్క్ లోపం. దయచేసి మళ్ళీ ప్రయత్నించండి.',
     secured: 'సురక్షిత కనెక్షన్ · కార్యకలాపం లాగ్ మరియు ఆడిట్ చేయబడుతుంది.',
     language: 'భాష',
+    navDashboard: 'డాష్‌బోర్డ్',
+    navEntry: 'డీజిల్ ఎంట్రీ',
+    navRegister: 'రిజిస్టర్ అప్‌లోడ్',
+    navPump: 'పంప్ ఫిల్లింగ్',
+    navTanker: 'ట్యాంకర్ ఫిల్లింగ్',
+    navTransactions: 'లావాదేవీలు',
+    navExceptions: 'మినహాయింపులు',
+    navMasters: 'మాస్టర్ డేటా',
+    navUsers: 'వినియోగదారులు',
+    navAudit: 'ఆడిట్ లాగ్',
+    navSystem: 'సిస్టమ్',
+    signOut: 'సైన్ అవుట్',
+    systemTitle: 'డీజిల్ ఫిల్లింగ్ నిర్వహణ వ్యవస్థ',
   },
   ta: {
     brandName: 'SFM டீசல் மேலாண்மை',
@@ -128,6 +206,19 @@ const DICT: Record<Lang, Record<Key, string>> = {
     networkError: 'நெட்வொர்க் பிழை. மீண்டும் முயற்சிக்கவும்.',
     secured: 'பாதுகாப்பான இணைப்பு · செயல்பாடு பதிவு செய்யப்பட்டு தணிக்கை செய்யப்படுகிறது.',
     language: 'மொழி',
+    navDashboard: 'டாஷ்போர்டு',
+    navEntry: 'டீசல் பதிவு',
+    navRegister: 'பதிவேடு பதிவேற்றம்',
+    navPump: 'பம்ப் நிரப்புதல்',
+    navTanker: 'டேங்கர் நிரப்புதல்',
+    navTransactions: 'பரிவர்த்தனைகள்',
+    navExceptions: 'விதிவிலக்குகள்',
+    navMasters: 'முதன்மைத் தரவு',
+    navUsers: 'பயனர்கள்',
+    navAudit: 'தணிக்கைப் பதிவு',
+    navSystem: 'அமைப்பு',
+    signOut: 'வெளியேறு',
+    systemTitle: 'டீசல் நிரப்புதல் மேலாண்மை அமைப்பு',
   },
   kn: {
     brandName: 'SFM ಡೀಸೆಲ್ ನಿರ್ವಹಣೆ',
@@ -144,6 +235,19 @@ const DICT: Record<Lang, Record<Key, string>> = {
     networkError: 'ನೆಟ್‌ವರ್ಕ್ ದೋಷ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
     secured: 'ಸುರಕ್ಷಿತ ಸಂಪರ್ಕ · ಚಟುವಟಿಕೆ ಲಾಗ್ ಮತ್ತು ಆಡಿಟ್ ಮಾಡಲಾಗುತ್ತದೆ.',
     language: 'ಭಾಷೆ',
+    navDashboard: 'ಡ್ಯಾಶ್‌ಬೋರ್ಡ್',
+    navEntry: 'ಡೀಸೆಲ್ ನಮೂದು',
+    navRegister: 'ರಿಜಿಸ್ಟರ್ ಅಪ್‌ಲೋಡ್',
+    navPump: 'ಪಂಪ್ ಭರ್ತಿ',
+    navTanker: 'ಟ್ಯಾಂಕರ್ ಭರ್ತಿ',
+    navTransactions: 'ವಹಿವಾಟುಗಳು',
+    navExceptions: 'ವಿನಾಯಿತಿಗಳು',
+    navMasters: 'ಮಾಸ್ಟರ್ ಡೇಟಾ',
+    navUsers: 'ಬಳಕೆದಾರರು',
+    navAudit: 'ಆಡಿಟ್ ಲಾಗ್',
+    navSystem: 'ಸಿಸ್ಟಂ',
+    signOut: 'ಸೈನ್ ಔಟ್',
+    systemTitle: 'ಡೀಸೆಲ್ ಭರ್ತಿ ನಿರ್ವಹಣಾ ವ್ಯವಸ್ಥೆ',
   },
 };
 
@@ -163,6 +267,8 @@ export function detectLang(): Lang {
   const nav = (navigator.language || '').slice(0, 2).toLowerCase();
   return isLang(nav) ? nav : 'en';
 }
+
+export type TKey = Key;
 
 export function t(lang: Lang, key: Key): string {
   return (DICT[lang] ?? DICT.en)[key] ?? DICT.en[key];
