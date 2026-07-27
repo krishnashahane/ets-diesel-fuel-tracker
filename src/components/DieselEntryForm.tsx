@@ -76,7 +76,8 @@ export default function DieselEntryForm() {
       setPhotos((p) => ({ ...p, [key]: url }));
       // Best-effort OCR — never blocks submission. Skipped if disabled in settings.
       if (cfg.ocrEnabled) {
-        runOcr(url).then((r) => {
+        const mode = key === 'plate' ? 'plate' : key === 'bill' ? 'text' : 'digits';
+        runOcr(url, mode).then((r) => {
           setOcr((o) => ({ ...o, [key]: r.confidence }));
           if (r.confidence > 0) applyOcr(key, r.fields);
         }).catch(() => {});
