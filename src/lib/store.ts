@@ -197,7 +197,7 @@ export function nextId(prefix: string): string {
   // many instances concurrently, so a random suffix is what actually prevents
   // two of them minting the same id — which the upsert would resolve by silently
   // overwriting one transaction with the other.
-  const rand = Math.floor(Math.random() * 0x1000000).toString(36);
+  const rand = crypto.randomUUID().replace(/-/g, '').slice(0, 8);
   return `${prefix}${Date.now().toString(36)}${(d.seq++).toString(36)}${rand}`;
 }
 

@@ -2,12 +2,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import bcrypt from 'bcryptjs';
+import { randomInt } from 'node:crypto';
 
 const OUT = path.resolve('src/data');
 fs.mkdirSync(OUT, { recursive: true });
 
-const rnd = (n = 4) => Math.random().toString(36).slice(2, 2 + n).toUpperCase();
-const mkPass = (p) => `${p}@${rnd()}${Math.floor(Math.random() * 90 + 10)}`;
+// CSPRNG: seeded credentials must not be predictable from Math.random state.
+const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const rnd = (n = 4) => Array.from({ length: n }, () => A[randomInt(A.length)]).join('');
+const mkPass = (p) => `${p}@${rnd()}${randomInt(10, 100)}`;
 
 const defs = [
   { username: 'superadmin', role: 'superadmin', name: 'Super Administrator' },
